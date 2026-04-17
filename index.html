@@ -5,13 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Queer American Memorials</title>
 
-  <!-- Load A-Frame first, then MindAR -->
   <script src="./lib/aframe.min.js"></script>
   <script src="./lib/mindar-image-aframe.prod.js"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Georgia', serif; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: Georgia, serif;
+    }
+
+    /* ── Critical iOS fix: scene and its canvas must fill screen ── */
+    a-scene {
+      position: fixed !important;
+      top: 0 !important; left: 0 !important;
+      width: 100% !important; height: 100% !important;
+      z-index: 0 !important;
+    }
+
+    /* MindAR injects a video element — must be visible on iOS */
+    a-scene video {
+      position: absolute !important;
+      top: 0 !important; left: 0 !important;
+      width: 100% !important; height: 100% !important;
+      object-fit: cover !important;
+      z-index: 0 !important;
+    }
+
+    /* A-Frame's canvas must sit on top of video */
+    a-scene canvas {
+      position: absolute !important;
+      top: 0 !important; left: 0 !important;
+      width: 100% !important; height: 100% !important;
+      z-index: 1 !important;
+    }
 
     /* ── Loading Screen ── */
     #loading-screen {
@@ -23,12 +53,12 @@
     }
     #loading-screen.hidden { opacity: 0; pointer-events: none; }
     .loading-ring {
-      width: 72px; height: 72px;
+      width: 68px; height: 68px;
       border: 3px solid rgba(180,120,255,0.2);
       border-top-color: #b478ff;
       border-radius: 50%;
       animation: spin 1.1s linear infinite;
-      margin-bottom: 28px;
+      margin-bottom: 26px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-title {
@@ -38,13 +68,38 @@
     }
     .loading-sub {
       color: rgba(180,150,255,0.55); font-size: 13px;
-      letter-spacing: 0.08em; text-align: center;
-      max-width: 260px; line-height: 1.6;
+      letter-spacing: 0.06em; text-align: center;
+      max-width: 270px; line-height: 1.7;
     }
     #loading-status {
-      margin-top: 18px;
-      color: rgba(100,220,200,0.7); font-size: 11px;
+      margin-top: 16px;
+      color: rgba(100,220,200,0.75); font-size: 11px;
       letter-spacing: 0.1em; text-align: center;
+    }
+
+    /* ── iOS Safari browser detection message ── */
+    #browser-warning {
+      display: none;
+      position: fixed; inset: 0; z-index: 99999;
+      background: #0d0a1a;
+      align-items: center; justify-content: center;
+      flex-direction: column; padding: 36px; text-align: center;
+    }
+    #browser-warning.show { display: flex; }
+    #browser-warning h2 { color: #f0e6ff; font-size: 22px; font-weight: 400; margin-bottom: 16px; letter-spacing: 0.08em; }
+    #browser-warning p { color: rgba(200,175,255,0.8); font-size: 14px; line-height: 1.75; margin-bottom: 24px; }
+    #browser-warning .safari-icon { font-size: 56px; margin-bottom: 20px; }
+    .btn-copy {
+      background: rgba(120,60,210,0.5);
+      border: 1px solid rgba(190,130,255,0.5);
+      color: #e8d5ff; border-radius: 14px; padding: 14px 28px;
+      font-size: 14px; letter-spacing: 0.06em; cursor: pointer;
+      margin-bottom: 12px; width: 100%; max-width: 300px;
+    }
+    .url-display {
+      color: rgba(100,220,200,0.8); font-size: 12px;
+      letter-spacing: 0.04em; margin-top: 8px;
+      word-break: break-all;
     }
 
     /* ── Scan Hint ── */
@@ -53,9 +108,9 @@
       transform: translateX(-50%);
       z-index: 100; text-align: center; pointer-events: none;
       animation: floatY 3s ease-in-out infinite;
-      transition: opacity 0.5s;
+      opacity: 0; transition: opacity 0.6s;
     }
-    #scan-hint.hidden { opacity: 0; pointer-events: none; }
+    #scan-hint.visible { opacity: 1; }
     @keyframes floatY {
       0%, 100% { transform: translateX(-50%) translateY(0); }
       50% { transform: translateX(-50%) translateY(-10px); }
@@ -67,10 +122,7 @@
       backdrop-filter: blur(10px);
     }
     .hint-icon { font-size: 26px; margin-bottom: 5px; }
-    .hint-text {
-      color: rgba(220,200,255,0.88); font-size: 13px;
-      letter-spacing: 0.06em;
-    }
+    .hint-text { color: rgba(220,200,255,0.9); font-size: 13px; letter-spacing: 0.06em; }
 
     /* ── Memorial Card ── */
     #memorial-card {
@@ -81,9 +133,7 @@
       opacity: 0; transform: translateY(30px);
       transition: opacity 0.7s ease, transform 0.7s ease;
     }
-    #memorial-card.visible {
-      opacity: 1; transform: translateY(0); pointer-events: auto;
-    }
+    #memorial-card.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
     .card-inner {
       background: linear-gradient(155deg, rgba(18,12,35,0.94) 0%, rgba(45,15,75,0.94) 100%);
       border: 1px solid rgba(190,130,255,0.45);
@@ -92,33 +142,12 @@
       backdrop-filter: blur(20px);
       box-shadow: 0 0 50px rgba(140,80,255,0.2), 0 20px 60px rgba(0,0,0,0.5);
     }
-    .card-eyebrow {
-      font-size: 10px; letter-spacing: 0.22em; color: rgba(190,130,255,0.65);
-      text-transform: uppercase; margin-bottom: 10px;
-    }
-    .card-name {
-      font-size: 28px; color: #f0e6ff; font-weight: 400;
-      margin-bottom: 3px; line-height: 1.1;
-    }
-    .card-dates {
-      font-size: 12px; color: rgba(190,160,255,0.7);
-      letter-spacing: 0.06em; margin-bottom: 14px;
-    }
-    .card-rule {
-      width: 44px; height: 2px;
-      background: linear-gradient(90deg, #8040c0, transparent);
-      margin-bottom: 14px;
-    }
-    .card-bio {
-      font-size: 13px; color: rgba(215,198,245,0.85);
-      line-height: 1.68; margin-bottom: 16px;
-    }
-    .card-quote {
-      font-size: 12px; color: rgba(190,130,255,0.8);
-      font-style: italic;
-      border-left: 2px solid rgba(190,130,255,0.35);
-      padding-left: 12px; margin-bottom: 18px; line-height: 1.65;
-    }
+    .card-eyebrow { font-size: 10px; letter-spacing: 0.22em; color: rgba(190,130,255,0.65); text-transform: uppercase; margin-bottom: 10px; }
+    .card-name { font-size: 28px; color: #f0e6ff; font-weight: 400; margin-bottom: 3px; line-height: 1.1; }
+    .card-dates { font-size: 12px; color: rgba(190,160,255,0.7); letter-spacing: 0.06em; margin-bottom: 14px; }
+    .card-rule { width: 44px; height: 2px; background: linear-gradient(90deg, #8040c0, transparent); margin-bottom: 14px; }
+    .card-bio { font-size: 13px; color: rgba(215,198,245,0.85); line-height: 1.68; margin-bottom: 16px; }
+    .card-quote { font-size: 12px; color: rgba(190,130,255,0.8); font-style: italic; border-left: 2px solid rgba(190,130,255,0.35); padding-left: 12px; margin-bottom: 18px; line-height: 1.65; }
     .card-actions { display: flex; gap: 10px; }
     .btn-primary {
       flex: 1; background: rgba(120,60,210,0.45);
@@ -126,62 +155,45 @@
       color: #e8d5ff; border-radius: 12px; padding: 11px 8px;
       font-size: 12px; letter-spacing: 0.08em; cursor: pointer;
       text-align: center; text-decoration: none;
-      transition: background 0.2s;
       display: flex; align-items: center; justify-content: center;
     }
-    .btn-primary:hover { background: rgba(120,60,210,0.75); }
     .btn-dismiss {
       background: rgba(18,12,35,0.5);
       border: 1px solid rgba(190,130,255,0.25);
       color: rgba(190,160,255,0.65); border-radius: 12px;
       padding: 11px 14px; font-size: 13px; cursor: pointer;
-      transition: background 0.2s;
     }
-    .card-badge {
-      text-align: center; margin-top: 14px;
-      font-size: 9px; letter-spacing: 0.2em;
-      color: rgba(190,130,255,0.35); text-transform: uppercase;
-    }
-
-    /* Error state */
-    #error-screen {
-      display: none; position: fixed; inset: 0; z-index: 10000;
-      background: #0d0a1a; align-items: center; justify-content: center;
-      flex-direction: column; padding: 32px; text-align: center;
-    }
-    #error-screen.show { display: flex; }
-    #error-screen p { color: rgba(220,190,255,0.8); font-size: 14px; line-height: 1.7; margin-top: 12px; }
-    #error-screen h2 { color: #f0e6ff; font-size: 20px; font-weight: 400; }
+    .card-badge { text-align: center; margin-top: 14px; font-size: 9px; letter-spacing: 0.2em; color: rgba(190,130,255,0.35); text-transform: uppercase; }
   </style>
 </head>
 <body>
+
+  <!-- iOS Chrome / non-Safari warning -->
+  <div id="browser-warning">
+    <div class="safari-icon">🧭</div>
+    <h2>Open in Safari</h2>
+    <p>This AR experience requires Safari on iPhone.<br>Chrome on iOS cannot access the camera for AR.</p>
+    <button class="btn-copy" onclick="copyURL()">Copy Link to Open in Safari</button>
+    <div class="url-display">photoartstar.github.io/qam-ar/</div>
+  </div>
 
   <!-- Loading -->
   <div id="loading-screen">
     <div class="loading-ring"></div>
     <div class="loading-title">Queer American<br>Memorials</div>
     <div class="loading-sub">Allow camera access when prompted, then point at the memorial brick</div>
-    <div id="loading-status">Initializing AR…</div>
+    <div id="loading-status">Initializing…</div>
   </div>
 
-  <!-- Error fallback -->
-  <div id="error-screen">
-    <h2>Camera Required</h2>
-    <p>Please allow camera access and open this page in Chrome or Safari.<br><br>
-    If you're on iOS, open in Safari. If on Android, open in Chrome.</p>
-  </div>
-
-  <!-- Scan hint (shown after loading, before target found) -->
+  <!-- Scan hint -->
   <div id="scan-hint">
     <div class="hint-box">
       <div class="hint-icon">🧱</div>
       <div class="hint-text">Point camera at the QAM memorial brick</div>
     </div>
   </div>
-  <!-- hidden by default until AR starts -->
-  <style>#scan-hint { opacity: 0; }</style>
 
-  <!-- Memorial overlay card -->
+  <!-- Memorial card -->
   <div id="memorial-card">
     <div class="card-inner">
       <div class="card-eyebrow">Queer American Memorials · New York City</div>
@@ -198,16 +210,14 @@
         <br><span style="font-size:11px;opacity:0.7">— Community memorial, Metropolitan Community Church, July 2000</span>
       </div>
       <div class="card-actions">
-        <a class="btn-primary" href="https://qam.staging.dotdot.social" target="_blank" rel="noopener">
-          Full Memorial Profile
-        </a>
+        <a class="btn-primary" href="https://qam.staging.dotdot.social" target="_blank" rel="noopener">Full Memorial Profile</a>
         <button class="btn-dismiss" onclick="closeCard()">✕</button>
       </div>
       <div class="card-badge">Queer American Memorials · Fiscally Sponsored by NYFA</div>
     </div>
   </div>
 
-  <!-- A-Frame AR Scene -->
+  <!-- AR Scene -->
   <a-scene
     mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no; filterMinCF: 0.001; filterBeta: 0.01;"
     color-space="sRGB"
@@ -215,78 +225,60 @@
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
   >
-
     <a-assets timeout="15000">
       <img id="brick-img" src="./assets/target-brick-640.jpg" crossorigin="anonymous" />
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Image target anchor -->
     <a-entity mindar-image-target="targetIndex: 0">
 
-      <!-- ── Aurora Base Glow ── -->
-      <a-plane
-        width="3.5" height="4.0"
-        position="0 1.8 0"
+      <!-- Aurora glow base -->
+      <a-plane width="3.5" height="4.0" position="0 1.8 0"
         material="color: #4020a0; opacity: 0.18; transparent: true; shader: flat; side: double;"
-        animation="property: material.opacity; from: 0.08; to: 0.28; dur: 2500; dir: alternate; loop: true; easing: easeInOutSine;"
-      ></a-plane>
+        animation="property: material.opacity; from: 0.08; to: 0.28; dur: 2500; dir: alternate; loop: true; easing: easeInOutSine;">
+      </a-plane>
 
       <!-- Aurora ribbon 1 — teal -->
-      <a-plane
-        width="3.4" height="0.20"
-        position="0 0.4 0.02"
+      <a-plane width="3.4" height="0.20" position="0 0.4 0.02"
         material="color: #30d0a0; opacity: 0.75; transparent: true; shader: flat;"
         animation__wave="property: rotation; from: 0 0 -5; to: 0 0 5; dur: 3000; dir: alternate; loop: true; easing: easeInOutSine;"
-        animation__drift="property: position; from: -0.1 0.4 0.02; to: 0.15 0.55 0.02; dur: 4200; dir: alternate; loop: true; easing: easeInOutSine;"
-      ></a-plane>
+        animation__drift="property: position; from: -0.1 0.4 0.02; to: 0.15 0.55 0.02; dur: 4200; dir: alternate; loop: true; easing: easeInOutSine;">
+      </a-plane>
 
       <!-- Aurora ribbon 2 — violet -->
-      <a-plane
-        width="3.0" height="0.17"
-        position="0 0.8 0.02"
+      <a-plane width="3.0" height="0.17" position="0 0.8 0.02"
         material="color: #8030e0; opacity: 0.65; transparent: true; shader: flat;"
         animation__wave="property: rotation; from: 0 0 7; to: 0 0 -7; dur: 3600; dir: alternate; loop: true; easing: easeInOutSine;"
-        animation__drift="property: position; from: 0.1 0.8 0.02; to: -0.15 0.95 0.02; dur: 4800; dir: alternate; loop: true; easing: easeInOutSine;"
-      ></a-plane>
+        animation__drift="property: position; from: 0.1 0.8 0.02; to: -0.15 0.95 0.02; dur: 4800; dir: alternate; loop: true; easing: easeInOutSine;">
+      </a-plane>
 
       <!-- Aurora ribbon 3 — cyan -->
-      <a-plane
-        width="2.8" height="0.14"
-        position="0 1.2 0.02"
+      <a-plane width="2.8" height="0.14" position="0 1.2 0.02"
         material="color: #10c0d8; opacity: 0.60; transparent: true; shader: flat;"
         animation__wave="property: rotation; from: 0 0 -6; to: 0 0 6; dur: 4100; dir: alternate; loop: true; easing: easeInOutSine;"
-        animation__drift="property: position; from: -0.05 1.2 0.02; to: 0.2 1.38 0.02; dur: 5200; dir: alternate; loop: true; easing: easeInOutSine;"
-      ></a-plane>
+        animation__drift="property: position; from: -0.05 1.2 0.02; to: 0.2 1.38 0.02; dur: 5200; dir: alternate; loop: true; easing: easeInOutSine;">
+      </a-plane>
 
       <!-- Aurora ribbon 4 — rose -->
-      <a-plane
-        width="2.4" height="0.12"
-        position="0 1.6 0.02"
+      <a-plane width="2.4" height="0.12" position="0 1.6 0.02"
         material="color: #e050b0; opacity: 0.55; transparent: true; shader: flat;"
         animation__wave="property: rotation; from: 0 0 8; to: 0 0 -8; dur: 3400; dir: alternate; loop: true; easing: easeInOutSine;"
-        animation__drift="property: position; from: 0.1 1.6 0.02; to: -0.18 1.75 0.02; dur: 4400; dir: alternate; loop: true; easing: easeInOutSine;"
-      ></a-plane>
+        animation__drift="property: position; from: 0.1 1.6 0.02; to: -0.18 1.75 0.02; dur: 4400; dir: alternate; loop: true; easing: easeInOutSine;">
+      </a-plane>
 
-      <!-- Aurora ribbon 5 — green (top) -->
-      <a-plane
-        width="2.0" height="0.10"
-        position="0 2.0 0.02"
+      <!-- Aurora ribbon 5 — green -->
+      <a-plane width="2.0" height="0.10" position="0 2.0 0.02"
         material="color: #50d070; opacity: 0.45; transparent: true; shader: flat;"
         animation__wave="property: rotation; from: 0 0 -4; to: 0 0 4; dur: 5000; dir: alternate; loop: true; easing: easeInOutSine;"
-        animation__drift="property: position; from: -0.08 2.0 0.02; to: 0.12 2.18 0.02; dur: 5800; dir: alternate; loop: true; easing: easeInOutSine;"
-      ></a-plane>
+        animation__drift="property: position; from: -0.08 2.0 0.02; to: 0.12 2.18 0.02; dur: 5800; dir: alternate; loop: true; easing: easeInOutSine;">
+      </a-plane>
 
-      <!-- ── Floating Memorial Card 1: Amanda Milan ── -->
-      <a-entity
-        position="-0.58 0.95 0.08"
+      <!-- Memorial card 1: Amanda Milan -->
+      <a-entity position="-0.58 0.95 0.08"
         animation__rise="property: position; from: -0.58 0.2 0.08; to: -0.58 0.95 0.08; dur: 1600; easing: easeOutQuart;"
-        animation__float="property: position; from: -0.58 0.95 0.08; to: -0.63 1.1 0.08; dur: 3200; dir: alternate; loop: true; delay: 1700; easing: easeInOutSine;"
-      >
-        <!-- card bg border -->
+        animation__float="property: position; from: -0.58 0.95 0.08; to: -0.63 1.1 0.08; dur: 3200; dir: alternate; loop: true; delay: 1700; easing: easeInOutSine;">
         <a-plane width="0.60" height="0.78" material="color: #7040b8; opacity: 0.45; transparent: true; shader: flat;" position="0 0 -0.003"></a-plane>
-        <!-- card bg -->
         <a-plane width="0.58" height="0.76" material="color: #0e0a20; opacity: 0.90; transparent: true; shader: flat;" position="0 0 -0.002"></a-plane>
         <a-text value="AMANDA" align="center" color="#e8d5ff" width="1.7" position="0 0.24 0.002" letter-spacing="3"></a-text>
         <a-text value="MILAN" align="center" color="#e8d5ff" width="1.7" position="0 0.10 0.002" letter-spacing="3"></a-text>
@@ -295,29 +287,25 @@
         <a-text value="Ballroom community.&#10;Trans rights activist." align="center" color="#c0a8e8" width="1.25" position="0 -0.33 0.002" letter-spacing="1"></a-text>
       </a-entity>
 
-      <!-- ── Floating Card 2: Site location ── -->
-      <a-entity
-        position="0.58 0.65 0.08"
+      <!-- Memorial card 2: Site -->
+      <a-entity position="0.58 0.65 0.08"
         animation__rise="property: position; from: 0.58 0.05 0.08; to: 0.58 0.65 0.08; dur: 1800; delay: 300; easing: easeOutQuart;"
-        animation__float="property: position; from: 0.58 0.65 0.08; to: 0.63 0.82 0.08; dur: 3600; dir: alternate; loop: true; delay: 2100; easing: easeInOutSine;"
-      >
+        animation__float="property: position; from: 0.58 0.65 0.08; to: 0.63 0.82 0.08; dur: 3600; dir: alternate; loop: true; delay: 2100; easing: easeInOutSine;">
         <a-plane width="0.55" height="0.34" material="color: #10a0c0; opacity: 0.40; transparent: true; shader: flat;" position="0 0 -0.003"></a-plane>
         <a-plane width="0.53" height="0.32" material="color: #080d1a; opacity: 0.90; transparent: true; shader: flat;" position="0 0 -0.002"></a-plane>
         <a-text value="42nd St &amp; 8th Ave&#10;Port Authority&#10;New York City&#10;June 20, 2000" align="center" color="#80d8e8" width="1.3" position="0 0.01 0.002" letter-spacing="1"></a-text>
       </a-entity>
 
-      <!-- ── Floating Card 3: Quote ── -->
-      <a-entity
-        position="0 1.85 0.08"
+      <!-- Memorial card 3: Quote -->
+      <a-entity position="0 1.85 0.08"
         animation__rise="property: position; from: 0 1.2 0.08; to: 0 1.85 0.08; dur: 2000; delay: 600; easing: easeOutQuart;"
-        animation__float="property: position; from: 0 1.85 0.08; to: 0.08 2.02 0.08; dur: 4000; dir: alternate; loop: true; delay: 2600; easing: easeInOutSine;"
-      >
+        animation__float="property: position; from: 0 1.85 0.08; to: 0.08 2.02 0.08; dur: 4000; dir: alternate; loop: true; delay: 2600; easing: easeInOutSine;">
         <a-plane width="0.95" height="0.28" material="color: #c040a0; opacity: 0.32; transparent: true; shader: flat;" position="0 0 -0.003"></a-plane>
         <a-plane width="0.93" height="0.26" material="color: #150820; opacity: 0.90; transparent: true; shader: flat;" position="0 0 -0.002"></a-plane>
         <a-text value='"Death will not be the&#10;last word for Amanda Milan."' align="center" color="#f0d0f0" width="2.0" position="0 0.01 0.002" letter-spacing="1"></a-text>
       </a-entity>
 
-      <!-- ── Point lights ── -->
+      <!-- Lights -->
       <a-light type="point" color="#8030d0" intensity="1.8" distance="4" position="0 0.1 0.3"
         animation="property: intensity; from: 1.2; to: 2.5; dur: 2200; dir: alternate; loop: true; easing: easeInOutSine;">
       </a-light>
@@ -325,120 +313,134 @@
         animation="property: intensity; from: 0.7; to: 1.8; dur: 2800; dir: alternate; loop: true; easing: easeInOutSine;">
       </a-light>
 
-      <!-- ── Orbiting particle ring ── -->
+      <!-- Particle ring -->
       <a-entity position="0 0.05 0.02"
         animation="property: rotation; from: 0 0 0; to: 0 0 360; dur: 9000; loop: true; easing: linear;">
-        <a-sphere radius="0.042" color="#c060ff" material="opacity: 0.85; transparent: true; shader: flat;" position="0.48 0 0"
-          animation="property: scale; from: 1 1 1; to: 1.45 1.45 1.45; dur: 1100; dir: alternate; loop: true; easing: easeInOutSine;"></a-sphere>
-        <a-sphere radius="0.032" color="#30c0a0" material="opacity: 0.80; transparent: true; shader: flat;" position="-0.48 0 0"
-          animation="property: scale; from: 1 1 1; to: 1.5 1.5 1.5; dur: 1400; dir: alternate; loop: true; delay: 200; easing: easeInOutSine;"></a-sphere>
-        <a-sphere radius="0.036" color="#e050a0" material="opacity: 0.80; transparent: true; shader: flat;" position="0 0.48 0"
-          animation="property: scale; from: 1 1 1; to: 1.35 1.35 1.35; dur: 1200; dir: alternate; loop: true; delay: 350; easing: easeInOutSine;"></a-sphere>
-        <a-sphere radius="0.030" color="#6080ff" material="opacity: 0.75; transparent: true; shader: flat;" position="0 -0.48 0"
-          animation="property: scale; from: 1 1 1; to: 1.6 1.6 1.6; dur: 1700; dir: alternate; loop: true; delay: 500; easing: easeInOutSine;"></a-sphere>
-        <a-sphere radius="0.026" color="#80ff80" material="opacity: 0.65; transparent: true; shader: flat;" position="0.34 0.34 0"
-          animation="property: scale; from: 1 1 1; to: 1.4 1.4 1.4; dur: 1300; dir: alternate; loop: true; delay: 100; easing: easeInOutSine;"></a-sphere>
-        <a-sphere radius="0.026" color="#ff8060" material="opacity: 0.65; transparent: true; shader: flat;" position="-0.34 0.34 0"
-          animation="property: scale; from: 1 1 1; to: 1.5 1.5 1.5; dur: 1550; dir: alternate; loop: true; delay: 300; easing: easeInOutSine;"></a-sphere>
-        <a-sphere radius="0.026" color="#c0a0ff" material="opacity: 0.68; transparent: true; shader: flat;" position="0.34 -0.34 0"
-          animation="property: scale; from: 1 1 1; to: 1.3 1.3 1.3; dur: 1400; dir: alternate; loop: true; delay: 450; easing: easeInOutSine;"></a-sphere>
-        <a-sphere radius="0.026" color="#40e0e0" material="opacity: 0.65; transparent: true; shader: flat;" position="-0.34 -0.34 0"
-          animation="property: scale; from: 1 1 1; to: 1.5 1.5 1.5; dur: 1650; dir: alternate; loop: true; delay: 650; easing: easeInOutSine;"></a-sphere>
+        <a-sphere radius="0.042" color="#c060ff" material="opacity: 0.85; transparent: true; shader: flat;" position="0.48 0 0"></a-sphere>
+        <a-sphere radius="0.032" color="#30c0a0" material="opacity: 0.80; transparent: true; shader: flat;" position="-0.48 0 0"></a-sphere>
+        <a-sphere radius="0.036" color="#e050a0" material="opacity: 0.80; transparent: true; shader: flat;" position="0 0.48 0"></a-sphere>
+        <a-sphere radius="0.030" color="#6080ff" material="opacity: 0.75; transparent: true; shader: flat;" position="0 -0.48 0"></a-sphere>
+        <a-sphere radius="0.026" color="#80ff80" material="opacity: 0.65; transparent: true; shader: flat;" position="0.34 0.34 0"></a-sphere>
+        <a-sphere radius="0.026" color="#ff8060" material="opacity: 0.65; transparent: true; shader: flat;" position="-0.34 0.34 0"></a-sphere>
+        <a-sphere radius="0.026" color="#c0a0ff" material="opacity: 0.68; transparent: true; shader: flat;" position="0.34 -0.34 0"></a-sphere>
+        <a-sphere radius="0.026" color="#40e0e0" material="opacity: 0.65; transparent: true; shader: flat;" position="-0.34 -0.34 0"></a-sphere>
       </a-entity>
 
-      <!-- ── QAM wordmark ── -->
-      <a-text
-        value="QUEER AMERICAN MEMORIALS"
-        align="center" color="#c0a0ff"
-        letter-spacing="2"
-        width="2.1"
-        position="0 -0.58 0.03"
-      ></a-text>
+      <!-- QAM wordmark -->
+      <a-text value="QUEER AMERICAN MEMORIALS" align="center" color="#c0a0ff"
+        letter-spacing="2" width="2.1" position="0 -0.58 0.03">
+      </a-text>
 
-    </a-entity><!-- end target -->
-
+    </a-entity>
   </a-scene>
 
   <script>
+    // ── Browser detection: warn if Chrome on iOS ──
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isChrome = /CriOS/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent) && !/FxiOS/.test(navigator.userAgent);
+
+    if (isIOS && !isSafari) {
+      document.getElementById('browser-warning').classList.add('show');
+      document.getElementById('loading-screen').style.display = 'none';
+    }
+
+    window.copyURL = function() {
+      const url = 'https://photoartstar.github.io/qam-ar/';
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+          document.querySelector('.btn-copy').textContent = 'Copied! Paste in Safari';
+        });
+      } else {
+        document.querySelector('.url-display').style.color = '#fff';
+        document.querySelector('.url-display').textContent = url + ' (copy this)';
+      }
+    };
+
+    // ── AR init ──
     const loadingScreen = document.getElementById('loading-screen');
     const loadingStatus = document.getElementById('loading-status');
     const scanHint = document.getElementById('scan-hint');
     const memorialCard = document.getElementById('memorial-card');
     let cardShown = false;
 
-    function showScanHint() {
-      scanHint.style.opacity = '1';
-      scanHint.style.transition = 'opacity 0.6s';
-    }
-
-    function showError(msg) {
-      document.getElementById('error-screen').classList.add('show');
-      loadingScreen.classList.add('hidden');
-    }
-
-    // Update status text during load
-    const statusMsgs = [
-      'Loading AR engine…',
-      'Preparing image targets…',
-      'Starting camera…',
-      'Ready — aim at the brick'
-    ];
-    let msgIdx = 0;
-    const statusTimer = setInterval(() => {
-      msgIdx = Math.min(msgIdx + 1, statusMsgs.length - 1);
-      loadingStatus.textContent = statusMsgs[msgIdx];
-    }, 2000);
-
-    // MindAR system events
     const scene = document.querySelector('a-scene');
 
+    // Force video element to be visible once MindAR creates it
+    // MindAR appends video to the scene element — we need to override its z-index
+    const fixVideoVisibility = () => {
+      const videos = document.querySelectorAll('a-scene video');
+      videos.forEach(v => {
+        v.style.setProperty('z-index', '-1', 'important');
+        v.style.setProperty('width', '100%', 'important');
+        v.style.setProperty('height', '100%', 'important');
+        v.style.setProperty('object-fit', 'cover', 'important');
+        v.style.setProperty('position', 'absolute', 'important');
+        v.style.setProperty('top', '0', 'important');
+        v.style.setProperty('left', '0', 'important');
+      });
+    };
+
+    // Poll for video element until it appears
+    const videoPoller = setInterval(() => {
+      const v = document.querySelector('a-scene video');
+      if (v) {
+        fixVideoVisibility();
+        clearInterval(videoPoller);
+      }
+    }, 200);
+
+    // Status cycle
+    const msgs = ['Initializing…', 'Loading AR engine…', 'Starting camera…', 'Ready'];
+    let mi = 0;
+    const msgTimer = setInterval(() => {
+      mi = Math.min(mi + 1, msgs.length - 1);
+      loadingStatus.textContent = msgs[mi];
+    }, 2000);
+
     scene.addEventListener('arReady', () => {
-      clearInterval(statusTimer);
-      loadingStatus.textContent = 'Ready — aim at the brick';
+      clearInterval(msgTimer);
+      fixVideoVisibility();
       setTimeout(() => {
         loadingScreen.classList.add('hidden');
-        showScanHint();
-      }, 600);
+        scanHint.classList.add('visible');
+      }, 500);
     });
 
-    // Fallback: if scene loaded fires but arReady never comes
+    // Fallback hide after 8s
     scene.addEventListener('loaded', () => {
       setTimeout(() => {
         if (!loadingScreen.classList.contains('hidden')) {
           loadingScreen.classList.add('hidden');
-          showScanHint();
+          scanHint.classList.add('visible');
         }
-      }, 5000);
+      }, 8000);
     });
 
-    // Target tracking
-    const target = document.querySelector('[mindar-image-target]');
+    scene.addEventListener('arError', (e) => {
+      console.warn('arError', e.detail);
+      loadingStatus.textContent = 'Camera error — please allow access and reload';
+      loadingStatus.style.color = '#ff8080';
+    });
 
+    const target = document.querySelector('[mindar-image-target]');
     target.addEventListener('targetFound', () => {
-      scanHint.style.opacity = '0';
+      scanHint.classList.remove('visible');
       if (!cardShown) {
         setTimeout(() => {
           memorialCard.classList.add('visible');
           cardShown = true;
-        }, 500);
+        }, 400);
       }
     });
 
-    target.addEventListener('targetLost', () => {
-      // Keep card up — user can dismiss manually
-    });
+    target.addEventListener('targetLost', () => { /* keep card up */ });
 
     window.closeCard = function() {
       memorialCard.classList.remove('visible');
       cardShown = false;
-      setTimeout(showScanHint, 600);
+      setTimeout(() => scanHint.classList.add('visible'), 600);
     };
-
-    // Listen for MindAR-level AR errors (camera denied etc)
-    scene.addEventListener('arError', (e) => {
-      console.warn('arError', e.detail);
-      showError('Camera error. Please allow camera access and reload.');
-    });
   </script>
 
 </body>
