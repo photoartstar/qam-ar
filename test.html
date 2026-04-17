@@ -9,23 +9,16 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-
-    /* The key iOS fix: ar-scene needs overflow visible and its internal
-       video must NOT be clipped or hidden behind WebGL */
     a-scene {
       position: fixed !important;
       top: 0 !important; left: 0 !important;
       width: 100% !important; height: 100% !important;
       display: block !important;
     }
-
-    /* MindAR sets video z-index:-2 which goes behind the black body on iOS.
-       We override to sit above body but below the WebGL canvas. */
     a-scene video {
       position: fixed !important;
       top: 0 !important; left: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
+      width: 100vw !important; height: 100vh !important;
       object-fit: cover !important;
       z-index: 1 !important;
       display: block !important;
@@ -34,39 +27,53 @@
       -webkit-transform: translateZ(0) !important;
       transform: translateZ(0) !important;
     }
-
-    /* WebGL canvas sits on top of video but transparent background */
     a-scene canvas {
       position: fixed !important;
       top: 0 !important; left: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
+      width: 100vw !important; height: 100vh !important;
       z-index: 2 !important;
       background: transparent !important;
     }
-
     #status {
       position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-      color: lime; font-size: 15px; text-align: center;
-      font-family: monospace; background: rgba(0,0,0,0.75);
-      padding: 10px; line-height: 1.4;
+      color: lime; font-size: 14px; text-align: center;
+      font-family: monospace; background: rgba(0,0,0,0.8);
+      padding: 10px 8px; line-height: 1.5;
+    }
+    #hint {
+      position: fixed; bottom: 60px; left: 0; right: 0; z-index: 9999;
+      color: white; font-size: 13px; text-align: center;
+      font-family: sans-serif; background: rgba(0,0,0,0.6);
+      padding: 10px; line-height: 1.5;
     }
   </style>
 </head>
 <body>
   <div id="status">Loading…</div>
+  <div id="hint">Point at the QAM brick plaque — either the close-up in-wall shot OR the flat plaque photo</div>
 
   <a-scene
-    mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
+    mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 10; warmupTolerance: 1;"
     renderer="alpha: true; antialias: false;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
   >
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Target 0: clean plaque screenshot -->
     <a-entity mindar-image-target="targetIndex: 0">
-      <a-box position="0 0 0" color="red" scale="0.5 0.5 0.5"
-        animation="property: rotation; from: 0 0 0; to: 0 360 0; dur: 2000; loop: true; easing: linear;">
+      <a-box position="0 0 0" color="#ff4444" scale="0.4 0.4 0.4"
+        animation="property: rotation; from: 0 0 0; to: 0 360 0; dur: 1500; loop: true; easing: linear;">
       </a-box>
+      <a-text value="TARGET 0\nFOUND!" align="center" color="yellow" width="1.5" position="0 0.4 0"></a-text>
+    </a-entity>
+
+    <!-- Target 1: in-wall brick photo -->
+    <a-entity mindar-image-target="targetIndex: 1">
+      <a-box position="0 0 0" color="#44ff44" scale="0.4 0.4 0.4"
+        animation="property: rotation; from: 0 0 0; to: 0 360 0; dur: 1500; loop: true; easing: linear;">
+      </a-box>
+      <a-text value="TARGET 1\nFOUND!" align="center" color="yellow" width="1.5" position="0 0.4 0"></a-text>
     </a-entity>
   </a-scene>
 
@@ -75,8 +82,7 @@
     const scene = document.querySelector('a-scene');
 
     function fixVideo() {
-      const videos = document.querySelectorAll('a-scene video, body video');
-      videos.forEach(v => {
+      document.querySelectorAll('video').forEach(v => {
         v.style.setProperty('position', 'fixed', 'important');
         v.style.setProperty('top', '0', 'important');
         v.style.setProperty('left', '0', 'important');
@@ -86,68 +92,48 @@
         v.style.setProperty('z-index', '1', 'important');
         v.style.setProperty('display', 'block', 'important');
         v.style.setProperty('opacity', '1', 'important');
-        v.style.setProperty('visibility', 'visible', 'important');
         v.style.setProperty('-webkit-transform', 'translateZ(0)', 'important');
-        // Force iOS to render the video layer
         v.setAttribute('playsinline', '');
         v.setAttribute('webkit-playsinline', '');
         v.setAttribute('muted', '');
-        s.textContent = '✅ CAMERA ON — video found & fixed!';
       });
-
-      // Make WebGL canvas transparent so video shows through
-      const canvases = document.querySelectorAll('a-scene canvas');
-      canvases.forEach(c => {
+      document.querySelectorAll('a-scene canvas').forEach(c => {
         c.style.setProperty('position', 'fixed', 'important');
         c.style.setProperty('top', '0', 'important');
         c.style.setProperty('left', '0', 'important');
         c.style.setProperty('width', '100vw', 'important');
         c.style.setProperty('height', '100vh', 'important');
         c.style.setProperty('z-index', '2', 'important');
-        c.style.setProperty('background', 'transparent', 'important');
       });
     }
 
-    // Poll aggressively for the video element
-    let pollCount = 0;
     const poll = setInterval(() => {
-      pollCount++;
-      const v = document.querySelector('video');
-      if (v) {
-        fixVideo();
-        // Keep fixing on every frame for a few seconds (iOS sometimes resets styles)
-        setTimeout(fixVideo, 500);
-        setTimeout(fixVideo, 1000);
-        setTimeout(fixVideo, 2000);
-        clearInterval(poll);
-      }
-      if (pollCount > 50) clearInterval(poll);
+      if (document.querySelector('video')) { fixVideo(); clearInterval(poll); }
     }, 100);
 
-    scene.addEventListener('loaded', () => {
-      s.textContent = 'Scene loaded — starting camera…';
-      fixVideo();
-    });
-
+    scene.addEventListener('loaded', () => { s.textContent = 'Scene loaded — starting camera…'; fixVideo(); });
     scene.addEventListener('arReady', () => {
-      s.textContent = '✅ CAMERA ON — point at the brick!';
+      s.textContent = '✅ Camera ON — point at brick!';
       s.style.color = 'lime';
       fixVideo();
+      setTimeout(fixVideo, 500);
+      setTimeout(fixVideo, 1500);
     });
-
     scene.addEventListener('arError', (e) => {
-      s.textContent = '❌ AR ERROR: ' + JSON.stringify(e.detail);
+      s.textContent = '❌ Error: ' + JSON.stringify(e.detail);
       s.style.color = 'red';
     });
 
-    document.addEventListener('DOMNodeInserted', () => {
-      const v = document.querySelector('video');
-      if (v) fixVideo();
-    });
-
-    document.querySelector('[mindar-image-target]').addEventListener('targetFound', () => {
-      s.textContent = '🎯 TARGET FOUND!';
-      s.style.color = 'yellow';
+    document.querySelectorAll('[mindar-image-target]').forEach((el, i) => {
+      el.addEventListener('targetFound', () => {
+        s.textContent = `🎯 TARGET ${i} FOUND! AR working!`;
+        s.style.color = 'yellow';
+        document.getElementById('hint').style.display = 'none';
+      });
+      el.addEventListener('targetLost', () => {
+        s.textContent = `✅ Camera ON — target ${i} lost, keep scanning…`;
+        s.style.color = 'lime';
+      });
     });
   </script>
 </body>
