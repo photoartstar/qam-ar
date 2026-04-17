@@ -10,37 +10,33 @@
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: Georgia, serif; }
 
-    html, body {
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #000;
-      font-family: Georgia, serif;
-    }
-
-    /* ── Critical iOS fix: scene and its canvas must fill screen ── */
+    /* ── iOS Safari: exact same rules that worked in test.html ── */
     a-scene {
       position: fixed !important;
       top: 0 !important; left: 0 !important;
       width: 100% !important; height: 100% !important;
-      z-index: 0 !important;
+      display: block !important;
     }
-
-    /* MindAR injects a video element — must be visible on iOS */
     a-scene video {
-      position: absolute !important;
+      position: fixed !important;
       top: 0 !important; left: 0 !important;
-      width: 100% !important; height: 100% !important;
+      width: 100vw !important; height: 100vh !important;
       object-fit: cover !important;
-      z-index: 0 !important;
-    }
-
-    /* A-Frame's canvas must sit on top of video */
-    a-scene canvas {
-      position: absolute !important;
-      top: 0 !important; left: 0 !important;
-      width: 100% !important; height: 100% !important;
       z-index: 1 !important;
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      -webkit-transform: translateZ(0) !important;
+      transform: translateZ(0) !important;
+    }
+    a-scene canvas {
+      position: fixed !important;
+      top: 0 !important; left: 0 !important;
+      width: 100vw !important; height: 100vh !important;
+      z-index: 2 !important;
+      background: transparent !important;
     }
 
     /* ── Loading Screen ── */
@@ -61,51 +57,26 @@
       margin-bottom: 26px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-title {
-      color: #e8d5ff; font-size: 20px; font-weight: 400;
-      letter-spacing: 0.15em; text-align: center;
-      text-transform: uppercase; margin-bottom: 10px;
-    }
-    .loading-sub {
-      color: rgba(180,150,255,0.55); font-size: 13px;
-      letter-spacing: 0.06em; text-align: center;
-      max-width: 270px; line-height: 1.7;
-    }
-    #loading-status {
-      margin-top: 16px;
-      color: rgba(100,220,200,0.75); font-size: 11px;
-      letter-spacing: 0.1em; text-align: center;
-    }
+    .loading-title { color: #e8d5ff; font-size: 20px; font-weight: 400; letter-spacing: 0.15em; text-align: center; text-transform: uppercase; margin-bottom: 10px; }
+    .loading-sub { color: rgba(180,150,255,0.55); font-size: 13px; letter-spacing: 0.06em; text-align: center; max-width: 270px; line-height: 1.7; }
+    #loading-status { margin-top: 16px; color: rgba(100,220,200,0.75); font-size: 11px; letter-spacing: 0.1em; text-align: center; }
 
-    /* ── iOS Safari browser detection message ── */
+    /* ── iOS Chrome warning ── */
     #browser-warning {
-      display: none;
-      position: fixed; inset: 0; z-index: 99999;
-      background: #0d0a1a;
-      align-items: center; justify-content: center;
+      display: none; position: fixed; inset: 0; z-index: 99999;
+      background: #0d0a1a; align-items: center; justify-content: center;
       flex-direction: column; padding: 36px; text-align: center;
     }
     #browser-warning.show { display: flex; }
     #browser-warning h2 { color: #f0e6ff; font-size: 22px; font-weight: 400; margin-bottom: 16px; letter-spacing: 0.08em; }
     #browser-warning p { color: rgba(200,175,255,0.8); font-size: 14px; line-height: 1.75; margin-bottom: 24px; }
     #browser-warning .safari-icon { font-size: 56px; margin-bottom: 20px; }
-    .btn-copy {
-      background: rgba(120,60,210,0.5);
-      border: 1px solid rgba(190,130,255,0.5);
-      color: #e8d5ff; border-radius: 14px; padding: 14px 28px;
-      font-size: 14px; letter-spacing: 0.06em; cursor: pointer;
-      margin-bottom: 12px; width: 100%; max-width: 300px;
-    }
-    .url-display {
-      color: rgba(100,220,200,0.8); font-size: 12px;
-      letter-spacing: 0.04em; margin-top: 8px;
-      word-break: break-all;
-    }
+    .btn-copy { background: rgba(120,60,210,0.5); border: 1px solid rgba(190,130,255,0.5); color: #e8d5ff; border-radius: 14px; padding: 14px 28px; font-size: 14px; letter-spacing: 0.06em; cursor: pointer; margin-bottom: 12px; width: 100%; max-width: 300px; }
+    .url-display { color: rgba(100,220,200,0.8); font-size: 12px; letter-spacing: 0.04em; margin-top: 8px; word-break: break-all; }
 
     /* ── Scan Hint ── */
     #scan-hint {
-      position: fixed; bottom: 44px; left: 50%;
-      transform: translateX(-50%);
+      position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%);
       z-index: 100; text-align: center; pointer-events: none;
       animation: floatY 3s ease-in-out infinite;
       opacity: 0; transition: opacity 0.6s;
@@ -115,12 +86,7 @@
       0%, 100% { transform: translateX(-50%) translateY(0); }
       50% { transform: translateX(-50%) translateY(-10px); }
     }
-    .hint-box {
-      background: rgba(20,10,40,0.82);
-      border: 1px solid rgba(180,120,255,0.4);
-      border-radius: 16px; padding: 14px 26px;
-      backdrop-filter: blur(10px);
-    }
+    .hint-box { background: rgba(20,10,40,0.82); border: 1px solid rgba(180,120,255,0.4); border-radius: 16px; padding: 14px 26px; backdrop-filter: blur(10px); }
     .hint-icon { font-size: 26px; margin-bottom: 5px; }
     .hint-text { color: rgba(220,200,255,0.9); font-size: 13px; letter-spacing: 0.06em; }
 
@@ -136,10 +102,8 @@
     #memorial-card.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
     .card-inner {
       background: linear-gradient(155deg, rgba(18,12,35,0.94) 0%, rgba(45,15,75,0.94) 100%);
-      border: 1px solid rgba(190,130,255,0.45);
-      border-radius: 22px; padding: 22px 24px;
-      max-width: 360px; width: 100%;
-      backdrop-filter: blur(20px);
+      border: 1px solid rgba(190,130,255,0.45); border-radius: 22px; padding: 22px 24px;
+      max-width: 360px; width: 100%; backdrop-filter: blur(20px);
       box-shadow: 0 0 50px rgba(140,80,255,0.2), 0 20px 60px rgba(0,0,0,0.5);
     }
     .card-eyebrow { font-size: 10px; letter-spacing: 0.22em; color: rgba(190,130,255,0.65); text-transform: uppercase; margin-bottom: 10px; }
@@ -149,26 +113,14 @@
     .card-bio { font-size: 13px; color: rgba(215,198,245,0.85); line-height: 1.68; margin-bottom: 16px; }
     .card-quote { font-size: 12px; color: rgba(190,130,255,0.8); font-style: italic; border-left: 2px solid rgba(190,130,255,0.35); padding-left: 12px; margin-bottom: 18px; line-height: 1.65; }
     .card-actions { display: flex; gap: 10px; }
-    .btn-primary {
-      flex: 1; background: rgba(120,60,210,0.45);
-      border: 1px solid rgba(190,130,255,0.5);
-      color: #e8d5ff; border-radius: 12px; padding: 11px 8px;
-      font-size: 12px; letter-spacing: 0.08em; cursor: pointer;
-      text-align: center; text-decoration: none;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .btn-dismiss {
-      background: rgba(18,12,35,0.5);
-      border: 1px solid rgba(190,130,255,0.25);
-      color: rgba(190,160,255,0.65); border-radius: 12px;
-      padding: 11px 14px; font-size: 13px; cursor: pointer;
-    }
+    .btn-primary { flex: 1; background: rgba(120,60,210,0.45); border: 1px solid rgba(190,130,255,0.5); color: #e8d5ff; border-radius: 12px; padding: 11px 8px; font-size: 12px; letter-spacing: 0.08em; cursor: pointer; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+    .btn-dismiss { background: rgba(18,12,35,0.5); border: 1px solid rgba(190,130,255,0.25); color: rgba(190,160,255,0.65); border-radius: 12px; padding: 11px 14px; font-size: 13px; cursor: pointer; }
     .card-badge { text-align: center; margin-top: 14px; font-size: 9px; letter-spacing: 0.2em; color: rgba(190,130,255,0.35); text-transform: uppercase; }
   </style>
 </head>
 <body>
 
-  <!-- iOS Chrome / non-Safari warning -->
+  <!-- iOS Chrome warning -->
   <div id="browser-warning">
     <div class="safari-icon">🧭</div>
     <h2>Open in Safari</h2>
@@ -181,7 +133,7 @@
   <div id="loading-screen">
     <div class="loading-ring"></div>
     <div class="loading-title">Queer American<br>Memorials</div>
-    <div class="loading-sub">Allow camera access when prompted, then point at the memorial brick</div>
+    <div class="loading-sub">Allow camera access, then point at the memorial brick</div>
     <div id="loading-status">Initializing…</div>
   </div>
 
@@ -200,15 +152,8 @@
       <div class="card-name">Amanda Milan</div>
       <div class="card-dates">November 20, 1974 — June 20, 2000</div>
       <div class="card-rule"></div>
-      <div class="card-bio">
-        Amanda Milan was a Black trans woman and beloved member of New York's ballroom community.
-        Murdered outside the Port Authority Bus Terminal at 42nd &amp; 8th Ave, age 25.
-        Her death galvanized the trans rights movement and prompted organizing across the city.
-      </div>
-      <div class="card-quote">
-        "Death will not be the last word for Amanda Milan."
-        <br><span style="font-size:11px;opacity:0.7">— Community memorial, Metropolitan Community Church, July 2000</span>
-      </div>
+      <div class="card-bio">Amanda Milan was a Black trans woman and beloved member of New York's ballroom community. Murdered outside the Port Authority Bus Terminal at 42nd &amp; 8th Ave, age 25. Her death galvanized the trans rights movement and prompted organizing across the city.</div>
+      <div class="card-quote">"Death will not be the last word for Amanda Milan."<br><span style="font-size:11px;opacity:0.7">— Community memorial, Metropolitan Community Church, July 2000</span></div>
       <div class="card-actions">
         <a class="btn-primary" href="https://qam.staging.dotdot.social" target="_blank" rel="noopener">Full Memorial Profile</a>
         <button class="btn-dismiss" onclick="closeCard()">✕</button>
@@ -220,8 +165,7 @@
   <!-- AR Scene -->
   <a-scene
     mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 10; warmupTolerance: 1;"
-    color-space="sRGB"
-    renderer="colorManagement: true; physicallyCorrectLights: false;"
+    renderer="alpha: true; antialias: false; colorManagement: true; physicallyCorrectLights: false;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
   >
@@ -231,6 +175,7 @@
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+    <!-- Target 0: the clean plaque photo (what triggers) -->
     <a-entity mindar-image-target="targetIndex: 0">
 
       <!-- Aurora glow base -->
@@ -274,7 +219,7 @@
         animation__drift="property: position; from: -0.08 2.0 0.02; to: 0.12 2.18 0.02; dur: 5800; dir: alternate; loop: true; easing: easeInOutSine;">
       </a-plane>
 
-      <!-- Memorial card 1: Amanda Milan -->
+      <!-- Floating card 1: Amanda Milan -->
       <a-entity position="-0.58 0.95 0.08"
         animation__rise="property: position; from: -0.58 0.2 0.08; to: -0.58 0.95 0.08; dur: 1600; easing: easeOutQuart;"
         animation__float="property: position; from: -0.58 0.95 0.08; to: -0.63 1.1 0.08; dur: 3200; dir: alternate; loop: true; delay: 1700; easing: easeInOutSine;">
@@ -287,7 +232,7 @@
         <a-text value="Ballroom community.&#10;Trans rights activist." align="center" color="#c0a8e8" width="1.25" position="0 -0.33 0.002" letter-spacing="1"></a-text>
       </a-entity>
 
-      <!-- Memorial card 2: Site -->
+      <!-- Floating card 2: Site -->
       <a-entity position="0.58 0.65 0.08"
         animation__rise="property: position; from: 0.58 0.05 0.08; to: 0.58 0.65 0.08; dur: 1800; delay: 300; easing: easeOutQuart;"
         animation__float="property: position; from: 0.58 0.65 0.08; to: 0.63 0.82 0.08; dur: 3600; dir: alternate; loop: true; delay: 2100; easing: easeInOutSine;">
@@ -296,7 +241,7 @@
         <a-text value="42nd St &amp; 8th Ave&#10;Port Authority&#10;New York City&#10;June 20, 2000" align="center" color="#80d8e8" width="1.3" position="0 0.01 0.002" letter-spacing="1"></a-text>
       </a-entity>
 
-      <!-- Memorial card 3: Quote -->
+      <!-- Floating card 3: Quote -->
       <a-entity position="0 1.85 0.08"
         animation__rise="property: position; from: 0 1.2 0.08; to: 0 1.85 0.08; dur: 2000; delay: 600; easing: easeOutQuart;"
         animation__float="property: position; from: 0 1.85 0.08; to: 0.08 2.02 0.08; dur: 4000; dir: alternate; loop: true; delay: 2600; easing: easeInOutSine;">
@@ -327,70 +272,63 @@
       </a-entity>
 
       <!-- QAM wordmark -->
-      <a-text value="QUEER AMERICAN MEMORIALS" align="center" color="#c0a0ff"
-        letter-spacing="2" width="2.1" position="0 -0.58 0.03">
-      </a-text>
+      <a-text value="QUEER AMERICAN MEMORIALS" align="center" color="#c0a0ff" letter-spacing="2" width="2.1" position="0 -0.58 0.03"></a-text>
 
     </a-entity>
   </a-scene>
 
   <script>
-    // ── Browser detection: warn if Chrome on iOS ──
+    // Browser detection
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isChrome = /CriOS/.test(navigator.userAgent);
     const isSafari = /Safari/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent) && !/FxiOS/.test(navigator.userAgent);
-
     if (isIOS && !isSafari) {
       document.getElementById('browser-warning').classList.add('show');
       document.getElementById('loading-screen').style.display = 'none';
     }
-
     window.copyURL = function() {
       const url = 'https://photoartstar.github.io/qam-ar/';
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(() => {
-          document.querySelector('.btn-copy').textContent = 'Copied! Paste in Safari';
-        });
-      } else {
-        document.querySelector('.url-display').style.color = '#fff';
-        document.querySelector('.url-display').textContent = url + ' (copy this)';
-      }
+      navigator.clipboard && navigator.clipboard.writeText(url).then(() => {
+        document.querySelector('.btn-copy').textContent = 'Copied! Paste in Safari';
+      });
     };
 
-    // ── AR init ──
+    // ── iOS video fix — identical to test.html ──
+    function fixVideo() {
+      document.querySelectorAll('video').forEach(v => {
+        v.style.setProperty('position', 'fixed', 'important');
+        v.style.setProperty('top', '0', 'important');
+        v.style.setProperty('left', '0', 'important');
+        v.style.setProperty('width', '100vw', 'important');
+        v.style.setProperty('height', '100vh', 'important');
+        v.style.setProperty('object-fit', 'cover', 'important');
+        v.style.setProperty('z-index', '1', 'important');
+        v.style.setProperty('display', 'block', 'important');
+        v.style.setProperty('opacity', '1', 'important');
+        v.style.setProperty('-webkit-transform', 'translateZ(0)', 'important');
+        v.setAttribute('playsinline', '');
+        v.setAttribute('webkit-playsinline', '');
+        v.setAttribute('muted', '');
+      });
+      document.querySelectorAll('a-scene canvas').forEach(c => {
+        c.style.setProperty('position', 'fixed', 'important');
+        c.style.setProperty('top', '0', 'important');
+        c.style.setProperty('left', '0', 'important');
+        c.style.setProperty('width', '100vw', 'important');
+        c.style.setProperty('height', '100vh', 'important');
+        c.style.setProperty('z-index', '2', 'important');
+      });
+    }
+    const poll = setInterval(() => {
+      if (document.querySelector('video')) { fixVideo(); clearInterval(poll); }
+    }, 100);
+
+    const scene = document.querySelector('a-scene');
     const loadingScreen = document.getElementById('loading-screen');
     const loadingStatus = document.getElementById('loading-status');
     const scanHint = document.getElementById('scan-hint');
     const memorialCard = document.getElementById('memorial-card');
     let cardShown = false;
 
-    const scene = document.querySelector('a-scene');
-
-    // Force video element to be visible once MindAR creates it
-    // MindAR appends video to the scene element — we need to override its z-index
-    const fixVideoVisibility = () => {
-      const videos = document.querySelectorAll('a-scene video');
-      videos.forEach(v => {
-        v.style.setProperty('z-index', '-1', 'important');
-        v.style.setProperty('width', '100%', 'important');
-        v.style.setProperty('height', '100%', 'important');
-        v.style.setProperty('object-fit', 'cover', 'important');
-        v.style.setProperty('position', 'absolute', 'important');
-        v.style.setProperty('top', '0', 'important');
-        v.style.setProperty('left', '0', 'important');
-      });
-    };
-
-    // Poll for video element until it appears
-    const videoPoller = setInterval(() => {
-      const v = document.querySelector('a-scene video');
-      if (v) {
-        fixVideoVisibility();
-        clearInterval(videoPoller);
-      }
-    }, 200);
-
-    // Status cycle
     const msgs = ['Initializing…', 'Loading AR engine…', 'Starting camera…', 'Ready'];
     let mi = 0;
     const msgTimer = setInterval(() => {
@@ -400,15 +338,17 @@
 
     scene.addEventListener('arReady', () => {
       clearInterval(msgTimer);
-      fixVideoVisibility();
+      fixVideo();
+      setTimeout(fixVideo, 500);
+      setTimeout(fixVideo, 1500);
       setTimeout(() => {
         loadingScreen.classList.add('hidden');
         scanHint.classList.add('visible');
       }, 500);
     });
 
-    // Fallback hide after 8s
     scene.addEventListener('loaded', () => {
+      fixVideo();
       setTimeout(() => {
         if (!loadingScreen.classList.contains('hidden')) {
           loadingScreen.classList.add('hidden');
@@ -418,7 +358,6 @@
     });
 
     scene.addEventListener('arError', (e) => {
-      console.warn('arError', e.detail);
       loadingStatus.textContent = 'Camera error — please allow access and reload';
       loadingStatus.style.color = '#ff8080';
     });
@@ -427,13 +366,9 @@
     target.addEventListener('targetFound', () => {
       scanHint.classList.remove('visible');
       if (!cardShown) {
-        setTimeout(() => {
-          memorialCard.classList.add('visible');
-          cardShown = true;
-        }, 400);
+        setTimeout(() => { memorialCard.classList.add('visible'); cardShown = true; }, 400);
       }
     });
-
     target.addEventListener('targetLost', () => { /* keep card up */ });
 
     window.closeCard = function() {
