@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Queer American Memorials</title>
+
+  <!-- MindAR + A-Frame bundle (self-contained) -->
+  <script src="./lib/aframe.min.js"></script>
+  <script src="./lib/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Georgia', serif; }
+
+    /* ────────────────── LOADING SCREEN ────────────────── */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #1c1d2a;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: opacity 0.8s ease;
+    }
+    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+    .loading-logo {
+      width: 80px; height: 80px;
+      border: 3px solid rgba(200,160,255,0.3);
+      border-top-color: #c8a0ff;
+      border-radius: 50%;
+      animation: spin 1.2s linear infinite;
+      margin-bottom: 24px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-title {
+      color: #e8d5ff; font-size: 22px; font-weight: 400;
+      letter-spacing: 0.12em; text-align: center;
+      margin-bottom: 8px;
+    }
+    .loading-sub {
+      color: rgba(200,180,255,0.6); font-size: 13px;
+      letter-spacing: 0.08em; text-align: center;
+    }
+
+    /* ────────────────── SCANNING HINT ────────────────── */
+    #scan-hint {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+      z-index: 100; text-align: center; pointer-events: none;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(-8px); }
+    }
+    .scan-hint-inner {
+      background: rgba(28,29,42,0.82);
+      border: 1px solid rgba(200,160,255,0.4);
+      border-radius: 16px; padding: 14px 24px;
+      backdrop-filter: blur(8px);
+    }
+    .scan-hint-icon { font-size: 28px; margin-bottom: 4px; }
+    .scan-hint-text {
+      color: rgba(232,213,255,0.9); font-size: 13px;
+      letter-spacing: 0.06em;
+    }
+    #scan-hint.hidden { display: none; }
+
+    /* ────────────────── MEMORIAL CARD (DOM overlay) ────────────────── */
+    #memorial-card {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 200; pointer-events: none;
+      display: flex; align-items: flex-end; justify-content: center;
+      padding-bottom: 32px;
+      opacity: 0; transition: opacity 0.8s ease;
+    }
+    #memorial-card.visible { opacity: 1; pointer-events: auto; }
+    .card-inner {
+      background: linear-gradient(160deg, rgba(28,29,42,0.92) 0%, rgba(50,20,80,0.92) 100%);
+      border: 1px solid rgba(200,160,255,0.5);
+      border-radius: 20px; padding: 24px 28px;
+      max-width: 340px; width: calc(100% - 48px);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 0 40px rgba(160,100,255,0.25), 0 0 80px rgba(160,100,255,0.1);
+    }
+    .card-eyebrow {
+      font-size: 10px; letter-spacing: 0.2em; color: rgba(200,160,255,0.7);
+      text-transform: uppercase; margin-bottom: 12px;
+    }
+    .card-name {
+      font-size: 26px; color: #f0e6ff; font-weight: 400;
+      margin-bottom: 4px; line-height: 1.15;
+    }
+    .card-dates {
+      font-size: 13px; color: rgba(200,180,255,0.75);
+      letter-spacing: 0.05em; margin-bottom: 16px;
+    }
+    .card-divider {
+      width: 48px; height: 2px;
+      background: linear-gradient(90deg, #9060d0, transparent);
+      margin-bottom: 16px;
+    }
+    .card-bio {
+      font-size: 13px; color: rgba(220,205,245,0.85);
+      line-height: 1.65; margin-bottom: 20px;
+    }
+    .card-quote {
+      font-size: 13px; color: rgba(200,160,255,0.8);
+      font-style: italic; border-left: 2px solid rgba(200,160,255,0.4);
+      padding-left: 12px; margin-bottom: 20px; line-height: 1.6;
+    }
+    .card-actions {
+      display: flex; gap: 10px;
+    }
+    .btn-primary {
+      flex: 1; background: rgba(140,80,220,0.5);
+      border: 1px solid rgba(200,160,255,0.5);
+      color: #e8d5ff; border-radius: 10px; padding: 10px;
+      font-size: 12px; letter-spacing: 0.08em; cursor: pointer;
+      text-align: center; text-decoration: none;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover { background: rgba(140,80,220,0.8); }
+    .btn-secondary {
+      background: rgba(28,29,42,0.6);
+      border: 1px solid rgba(200,160,255,0.3);
+      color: rgba(200,180,255,0.7); border-radius: 10px; padding: 10px 14px;
+      font-size: 12px; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-secondary:hover { background: rgba(60,40,100,0.6); }
+    .card-qam-badge {
+      text-align: center; margin-top: 16px;
+      font-size: 9px; letter-spacing: 0.18em;
+      color: rgba(200,160,255,0.4); text-transform: uppercase;
+    }
+
+    /* A-Frame canvas sits under everything */
+    a-scene { position: fixed; inset: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loading-logo"></div>
+    <div class="loading-title">Queer American<br>Memorials</div>
+    <div class="loading-sub">Point your camera at the memorial brick</div>
+  </div>
+
+  <!-- Scan Hint -->
+  <div id="scan-hint">
+    <div class="scan-hint-inner">
+      <div class="scan-hint-icon">🧱</div>
+      <div class="scan-hint-text">Point camera at the QAM memorial brick</div>
+    </div>
+  </div>
+
+  <!-- Memorial Card (appears when brick is found) -->
+  <div id="memorial-card">
+    <div class="card-inner">
+      <div class="card-eyebrow">Queer American Memorials · New York City</div>
+      <div class="card-name">Amanda Milan</div>
+      <div class="card-dates">November 20, 1974 — June 20, 2000</div>
+      <div class="card-divider"></div>
+      <div class="card-bio">
+        Amanda Milan was a Black trans woman and beloved member of New York's ballroom community.
+        She was murdered outside the Port Authority Bus Terminal on 42nd Street, at the age of 25.
+        Her death galvanized the trans rights movement and prompted renewed organizing across the city.
+      </div>
+      <div class="card-quote">
+        "Death will not be the last word for Amanda Milan."<br>
+        <span style="font-size:11px; opacity:0.7">— Community memorial, Metropolitan Community Church, July 2000</span>
+      </div>
+      <div class="card-actions">
+        <a class="btn-primary" href="https://qam.staging.dotdot.social" target="_blank">
+          Full Memorial Profile
+        </a>
+        <button class="btn-secondary" onclick="closeCard()">✕</button>
+      </div>
+      <div class="card-qam-badge">Queer American Memorials · NYFA Fiscally Sponsored</div>
+    </div>
+  </div>
+
+  <!-- ────────────────── A-Frame AR Scene ────────────────── -->
+  <a-scene
+    mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+  >
+    <a-assets>
+      <img id="brick-img" src="./assets/target-brick-640.jpg" crossorigin="anonymous" />
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Target anchor: everything inside appears when brick is detected -->
+    <a-entity mindar-image-target="targetIndex: 0">
+
+      <!-- ── Aurora Borealis Effect Layer 1: wide shimmer plane ── -->
+      <a-entity
+        id="aurora-base"
+        geometry="primitive: plane; width: 3.5; height: 3.5"
+        position="0 1.4 0.01"
+        material="color: #6030b0; opacity: 0.0; transparent: true; shader: flat"
+        animation__scalein="property: components.material.material.opacity; from: 0; to: 0.35; dur: 1500; easing: easeInOutSine"
+        animation__pulse="property: components.material.material.opacity; from: 0.15; to: 0.45; dur: 2800; dir: alternate; loop: true; easing: easeInOutSine; delay: 1600"
+      >
+        <!-- Aurora ribbon 1 -->
+        <a-entity
+          geometry="primitive: plane; width: 3.2; height: 0.22"
+          position="0 0.3 0.01"
+          material="color: #40c8a0; opacity: 0; transparent: true; shader: flat"
+          animation__appear="property: components.material.material.opacity; from: 0; to: 0.7; dur: 1200; delay: 200; easing: easeOutQuad"
+          animation__wave="property: rotation; from: 0 0 -6; to: 0 0 6; dur: 3200; dir: alternate; loop: true; easing: easeInOutSine"
+          animation__drift="property: position; from: 0 0.3 0.01; to: 0.15 0.5 0.01; dur: 4000; dir: alternate; loop: true; easing: easeInOutSine"
+        ></a-entity>
+
+        <!-- Aurora ribbon 2 -->
+        <a-entity
+          geometry="primitive: plane; width: 2.8; height: 0.18"
+          position="0 0.7 0.01"
+          material="color: #8040e0; opacity: 0; transparent: true; shader: flat"
+          animation__appear="property: components.material.material.opacity; from: 0; to: 0.65; dur: 1400; delay: 400; easing: easeOutQuad"
+          animation__wave="property: rotation; from: 0 0 8; to: 0 0 -8; dur: 3800; dir: alternate; loop: true; easing: easeInOutSine"
+          animation__drift="property: position; from: 0 0.7 0.01; to: -0.1 0.9 0.01; dur: 4500; dir: alternate; loop: true; easing: easeInOutSine"
+        ></a-entity>
+
+        <!-- Aurora ribbon 3 -->
+        <a-entity
+          geometry="primitive: plane; width: 3.0; height: 0.14"
+          position="0 1.1 0.01"
+          material="color: #20b8d0; opacity: 0; transparent: true; shader: flat"
+          animation__appear="property: components.material.material.opacity; from: 0; to: 0.55; dur: 1600; delay: 600; easing: easeOutQuad"
+          animation__wave="property: rotation; from: 0 0 -5; to: 0 0 5; dur: 4200; dir: alternate; loop: true; easing: easeInOutSine"
+          animation__drift="property: position; from: 0 1.1 0.01; to: 0.2 1.3 0.01; dur: 5000; dir: alternate; loop: true; easing: easeInOutSine"
+        ></a-entity>
+
+        <!-- Aurora ribbon 4 -->
+        <a-entity
+          geometry="primitive: plane; width: 2.4; height: 0.12"
+          position="0 1.5 0.01"
+          material="color: #e060c0; opacity: 0; transparent: true; shader: flat"
+          animation__appear="property: components.material.material.opacity; from: 0; to: 0.5; dur: 1800; delay: 800; easing: easeOutQuad"
+          animation__wave="property: rotation; from: 0 0 7; to: 0 0 -7; dur: 3600; dir: alternate; loop: true; easing: easeInOutSine"
+          animation__drift="property: position; from: 0 1.5 0.01; to: -0.2 1.7 0.01; dur: 4200; dir: alternate; loop: true; easing: easeInOutSine"
+        ></a-entity>
+
+        <!-- Aurora ribbon 5 (top fade) -->
+        <a-entity
+          geometry="primitive: plane; width: 2.0; height: 0.10"
+          position="0 1.9 0.01"
+          material="color: #60d080; opacity: 0; transparent: true; shader: flat"
+          animation__appear="property: components.material.material.opacity; from: 0; to: 0.4; dur: 2000; delay: 1000; easing: easeOutQuad"
+          animation__wave="property: rotation; from: 0 0 -4; to: 0 0 4; dur: 5000; dir: alternate; loop: true; easing: easeInOutSine"
+          animation__drift="property: position; from: 0 1.9 0.01; to: 0.1 2.1 0.01; dur: 5500; dir: alternate; loop: true; easing: easeInOutSine"
+        ></a-entity>
+      </a-entity>
+
+      <!-- ── Floating Image Card 1: Amanda's era ── -->
+      <a-entity
+        position="-0.55 1.0 0.05"
+        animation__rise="property: position; from: -0.55 0.3 0.05; to: -0.55 1.0 0.05; dur: 1800; delay: 500; easing: easeOutQuart"
+        animation__appear="property: components.material.material.opacity; from: 0; to: 0.9; dur: 1200; delay: 500"
+        animation__float="property: position; from: -0.55 1.0 0.05; to: -0.6 1.15 0.05; dur: 3000; dir: alternate; loop: true; delay: 2400; easing: easeInOutSine"
+      >
+        <a-plane
+          width="0.55" height="0.72"
+          material="color: #1c1d2a; opacity: 0.88; transparent: true; shader: flat"
+          position="0 0 -0.001"
+        ></a-plane>
+        <!-- Card border glow -->
+        <a-plane
+          width="0.57" height="0.74"
+          material="color: #9060d0; opacity: 0.4; transparent: true; shader: flat"
+          position="0 0 -0.002"
+        ></a-plane>
+        <a-text
+          value="AMANDA\nMILAN"
+          align="center" color="#e8d5ff"
+          font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"
+          width="1.6" position="0 0.18 0.01"
+          letter-spacing="2"
+        ></a-text>
+        <a-text
+          value="1974 — 2000\nNew York City"
+          align="center" color="#b090e0"
+          font="https://cdn.aframe.io/fonts/Exo2Light.fnt"
+          width="1.4" position="0 -0.08 0.01"
+          letter-spacing="1"
+        ></a-text>
+        <a-text
+          value="Ballroom performer.\nCommunity leader.\nTrans rights activist."
+          align="center" color="#c0a8e8"
+          font="https://cdn.aframe.io/fonts/Exo2Light.fnt"
+          width="1.3" position="0 -0.28 0.01"
+          letter-spacing="1"
+        ></a-text>
+      </a-entity>
+
+      <!-- ── Floating Card 2: Site marker ── -->
+      <a-entity
+        position="0.55 0.7 0.05"
+        animation__rise="property: position; from: 0.55 0.1 0.05; to: 0.55 0.7 0.05; dur: 2000; delay: 800; easing: easeOutQuart"
+        animation__float="property: position; from: 0.55 0.7 0.05; to: 0.6 0.85 0.05; dur: 3500; dir: alternate; loop: true; delay: 2800; easing: easeInOutSine"
+      >
+        <a-plane
+          width="0.52" height="0.30"
+          material="color: #1c1d2a; opacity: 0.88; transparent: true; shader: flat"
+          position="0 0 -0.001"
+        ></a-plane>
+        <a-plane
+          width="0.54" height="0.32"
+          material="color: #20b8d0; opacity: 0.35; transparent: true; shader: flat"
+          position="0 0 -0.002"
+        ></a-plane>
+        <a-text
+          value="📍 42nd St & 8th Ave\nPort Authority\nNew York City, NY\nJune 20, 2000"
+          align="center" color="#90d8e8"
+          font="https://cdn.aframe.io/fonts/Exo2Light.fnt"
+          width="1.3" position="0 0 0.01"
+          letter-spacing="1"
+        ></a-text>
+      </a-entity>
+
+      <!-- ── Floating Card 3: Quote ── -->
+      <a-entity
+        position="0 1.8 0.05"
+        animation__rise="property: position; from: 0 1.2 0.05; to: 0 1.8 0.05; dur: 2200; delay: 1100; easing: easeOutQuart"
+        animation__float="property: position; from: 0 1.8 0.05; to: 0.1 1.95 0.05; dur: 4000; dir: alternate; loop: true; delay: 3200; easing: easeInOutSine"
+      >
+        <a-plane
+          width="0.9" height="0.26"
+          material="color: #2a1040; opacity: 0.9; transparent: true; shader: flat"
+          position="0 0 -0.001"
+        ></a-plane>
+        <a-plane
+          width="0.92" height="0.28"
+          material="color: #e060c0; opacity: 0.3; transparent: true; shader: flat"
+          position="0 0 -0.002"
+        ></a-plane>
+        <a-text
+          value='"Death will not be the\nlast word for Amanda Milan."'
+          align="center" color="#f0d0f0"
+          font="https://cdn.aframe.io/fonts/Exo2Light.fnt"
+          width="1.9" position="0 0 0.01"
+          letter-spacing="1"
+        ></a-text>
+      </a-entity>
+
+      <!-- ── Light burst from brick ── -->
+      <a-light
+        type="point" color="#9040e0" intensity="0"
+        position="0 0.1 0.2"
+        animation__on="property: intensity; from: 0; to: 2.5; dur: 1000; delay: 300; easing: easeOutQuad"
+        animation__pulse="property: intensity; from: 1.5; to: 2.8; dur: 2000; dir: alternate; loop: true; delay: 1400; easing: easeInOutSine"
+      ></a-light>
+      <a-light
+        type="point" color="#20d0c0" intensity="0"
+        position="0 0.8 0.3"
+        animation__on="property: intensity; from: 0; to: 1.5; dur: 1400; delay: 600"
+        animation__pulse="property: intensity; from: 0.8; to: 2.0; dur: 2600; dir: alternate; loop: true; delay: 2000; easing: easeInOutSine"
+      ></a-light>
+
+      <!-- ── Particle ring at brick level ── -->
+      <a-entity position="0 0.05 0.02">
+        <!-- 8 glow orbs in a ring -->
+        <a-entity animation__spin="property: rotation; from: 0 0 0; to: 0 0 360; dur: 8000; loop: true; easing: linear">
+          <a-sphere radius="0.04" color="#c060ff" material="opacity: 0.8; transparent: true; shader: flat" position="0.45 0 0"
+            animation__pulse="property: scale; from: 1 1 1; to: 1.4 1.4 1.4; dur: 1200; dir: alternate; loop: true; easing: easeInOutSine"></a-sphere>
+          <a-sphere radius="0.03" color="#40d0b0" material="opacity: 0.7; transparent: true; shader: flat" position="-0.45 0 0"
+            animation__pulse="property: scale; from: 1 1 1; to: 1.5 1.5 1.5; dur: 1500; dir: alternate; loop: true; delay: 200; easing: easeInOutSine"></a-sphere>
+          <a-sphere radius="0.035" color="#e060a0" material="opacity: 0.75; transparent: true; shader: flat" position="0 0.45 0"
+            animation__pulse="property: scale; from: 1 1 1; to: 1.3 1.3 1.3; dur: 1100; dir: alternate; loop: true; delay: 400; easing: easeInOutSine"></a-sphere>
+          <a-sphere radius="0.03" color="#6080ff" material="opacity: 0.7; transparent: true; shader: flat" position="0 -0.45 0"
+            animation__pulse="property: scale; from: 1 1 1; to: 1.6 1.6 1.6; dur: 1800; dir: alternate; loop: true; delay: 600; easing: easeInOutSine"></a-sphere>
+          <a-sphere radius="0.025" color="#80ff80" material="opacity: 0.6; transparent: true; shader: flat" position="0.32 0.32 0"
+            animation__pulse="property: scale; from: 1 1 1; to: 1.4 1.4 1.4; dur: 1300; dir: alternate; loop: true; delay: 100; easing: easeInOutSine"></a-sphere>
+          <a-sphere radius="0.025" color="#ff8060" material="opacity: 0.6; transparent: true; shader: flat" position="-0.32 0.32 0"
+            animation__pulse="property: scale; from: 1 1 1; to: 1.5 1.5 1.5; dur: 1600; dir: alternate; loop: true; delay: 300; easing: easeInOutSine"></a-sphere>
+          <a-sphere radius="0.025" color="#c0a0ff" material="opacity: 0.65; transparent: true; shader: flat" position="0.32 -0.32 0"
+            animation__pulse="property: scale; from: 1 1 1; to: 1.3 1.3 1.3; dur: 1400; dir: alternate; loop: true; delay: 500; easing: easeInOutSine"></a-sphere>
+          <a-sphere radius="0.025" color="#40e0e0" material="opacity: 0.6; transparent: true; shader: flat" position="-0.32 -0.32 0"
+            animation__pulse="property: scale; from: 1 1 1; to: 1.5 1.5 1.5; dur: 1700; dir: alternate; loop: true; delay: 700; easing: easeInOutSine"></a-sphere>
+        </a-entity>
+      </a-entity>
+
+      <!-- ── QAM wordmark above the brick ── -->
+      <a-entity position="0 -0.55 0.02"
+        animation__appear="property: components.material.material.opacity; from: 0; to: 1; dur: 1000; delay: 1500">
+        <a-text
+          value="QUEER AMERICAN MEMORIALS"
+          align="center" color="#c8a0ff"
+          font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"
+          letter-spacing="3"
+          width="2.0" position="0 0 0"
+        ></a-text>
+      </a-entity>
+
+    </a-entity><!-- end mindar-image-target -->
+
+  </a-scene>
+
+  <script>
+    const scene = document.querySelector('a-scene');
+    const loadingScreen = document.getElementById('loading-screen');
+    const scanHint = document.getElementById('scan-hint');
+    const memorialCard = document.getElementById('memorial-card');
+    let cardVisible = false;
+
+    // Hide loading screen when scene is ready
+    scene.addEventListener('loaded', () => {
+      setTimeout(() => {
+        loadingScreen.classList.add('hidden');
+      }, 800);
+    });
+
+    // Track target found/lost
+    const target = document.querySelector('[mindar-image-target]');
+
+    target.addEventListener('targetFound', () => {
+      scanHint.classList.add('hidden');
+      if (!cardVisible) {
+        setTimeout(() => {
+          memorialCard.classList.add('visible');
+          cardVisible = true;
+        }, 600);
+      }
+    });
+
+    target.addEventListener('targetLost', () => {
+      // Keep card visible - user can dismiss manually
+    });
+
+    // Close card
+    window.closeCard = function() {
+      memorialCard.classList.remove('visible');
+      cardVisible = false;
+      setTimeout(() => {
+        scanHint.classList.remove('hidden');
+      }, 500);
+    };
+
+    // Camera permission handling
+    navigator.mediaDevices?.getUserMedia({ video: true }).catch(() => {
+      loadingScreen.querySelector('.loading-sub').textContent =
+        'Camera permission required — please allow access';
+    });
+  </script>
+
+</body>
+</html>
