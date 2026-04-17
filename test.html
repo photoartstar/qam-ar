@@ -10,24 +10,39 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
 
+    /* The key iOS fix: ar-scene needs overflow visible and its internal
+       video must NOT be clipped or hidden behind WebGL */
     a-scene {
       position: fixed !important;
       top: 0 !important; left: 0 !important;
       width: 100% !important; height: 100% !important;
+      display: block !important;
     }
-    /* Force MindAR video visible on iOS */
+
+    /* MindAR sets video z-index:-2 which goes behind the black body on iOS.
+       We override to sit above body but below the WebGL canvas. */
     a-scene video {
-      position: absolute !important;
+      position: fixed !important;
       top: 0 !important; left: 0 !important;
-      width: 100% !important; height: 100% !important;
+      width: 100vw !important;
+      height: 100vh !important;
       object-fit: cover !important;
-      z-index: -1 !important;
-    }
-    a-scene canvas {
-      position: absolute !important;
-      top: 0 !important; left: 0 !important;
-      width: 100% !important; height: 100% !important;
       z-index: 1 !important;
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      -webkit-transform: translateZ(0) !important;
+      transform: translateZ(0) !important;
+    }
+
+    /* WebGL canvas sits on top of video but transparent background */
+    a-scene canvas {
+      position: fixed !important;
+      top: 0 !important; left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 2 !important;
+      background: transparent !important;
     }
 
     #status {
@@ -43,6 +58,7 @@
 
   <a-scene
     mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
+    renderer="alpha: true; antialias: false;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
   >
@@ -58,30 +74,77 @@
     const s = document.getElementById('status');
     const scene = document.querySelector('a-scene');
 
-    // iOS video fix
-    const fixVideo = () => {
-      document.querySelectorAll('a-scene video').forEach(v => {
-        v.style.setProperty('z-index', '-1', 'important');
-        v.style.setProperty('width', '100%', 'important');
-        v.style.setProperty('height', '100%', 'important');
-        v.style.setProperty('object-fit', 'cover', 'important');
-        v.style.setProperty('position', 'absolute', 'important');
+    function fixVideo() {
+      const videos = document.querySelectorAll('a-scene video, body video');
+      videos.forEach(v => {
+        v.style.setProperty('position', 'fixed', 'important');
         v.style.setProperty('top', '0', 'important');
         v.style.setProperty('left', '0', 'important');
+        v.style.setProperty('width', '100vw', 'important');
+        v.style.setProperty('height', '100vh', 'important');
+        v.style.setProperty('object-fit', 'cover', 'important');
+        v.style.setProperty('z-index', '1', 'important');
+        v.style.setProperty('display', 'block', 'important');
+        v.style.setProperty('opacity', '1', 'important');
+        v.style.setProperty('visibility', 'visible', 'important');
+        v.style.setProperty('-webkit-transform', 'translateZ(0)', 'important');
+        // Force iOS to render the video layer
+        v.setAttribute('playsinline', '');
+        v.setAttribute('webkit-playsinline', '');
+        v.setAttribute('muted', '');
+        s.textContent = '✅ CAMERA ON — video found & fixed!';
       });
-    };
-    setInterval(() => { if (document.querySelector('a-scene video')) { fixVideo(); } }, 300);
 
-    scene.addEventListener('loaded', () => { s.textContent = 'Scene loaded — waiting for camera…'; });
-    scene.addEventListener('arReady', () => {
+      // Make WebGL canvas transparent so video shows through
+      const canvases = document.querySelectorAll('a-scene canvas');
+      canvases.forEach(c => {
+        c.style.setProperty('position', 'fixed', 'important');
+        c.style.setProperty('top', '0', 'important');
+        c.style.setProperty('left', '0', 'important');
+        c.style.setProperty('width', '100vw', 'important');
+        c.style.setProperty('height', '100vh', 'important');
+        c.style.setProperty('z-index', '2', 'important');
+        c.style.setProperty('background', 'transparent', 'important');
+      });
+    }
+
+    // Poll aggressively for the video element
+    let pollCount = 0;
+    const poll = setInterval(() => {
+      pollCount++;
+      const v = document.querySelector('video');
+      if (v) {
+        fixVideo();
+        // Keep fixing on every frame for a few seconds (iOS sometimes resets styles)
+        setTimeout(fixVideo, 500);
+        setTimeout(fixVideo, 1000);
+        setTimeout(fixVideo, 2000);
+        clearInterval(poll);
+      }
+      if (pollCount > 50) clearInterval(poll);
+    }, 100);
+
+    scene.addEventListener('loaded', () => {
+      s.textContent = 'Scene loaded — starting camera…';
       fixVideo();
+    });
+
+    scene.addEventListener('arReady', () => {
       s.textContent = '✅ CAMERA ON — point at the brick!';
       s.style.color = 'lime';
+      fixVideo();
     });
+
     scene.addEventListener('arError', (e) => {
       s.textContent = '❌ AR ERROR: ' + JSON.stringify(e.detail);
       s.style.color = 'red';
     });
+
+    document.addEventListener('DOMNodeInserted', () => {
+      const v = document.querySelector('video');
+      if (v) fixVideo();
+    });
+
     document.querySelector('[mindar-image-target]').addEventListener('targetFound', () => {
       s.textContent = '🎯 TARGET FOUND!';
       s.style.color = 'yellow';
