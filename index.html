@@ -211,10 +211,9 @@
   <a-scene
     mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no; filterMinCF: 0.001; filterBeta: 0.01;"
     color-space="sRGB"
-    renderer="colorManagement: true; physicallyCorrectLights: false; logarithmicDepthBuffer: true;"
+    renderer="colorManagement: true; physicallyCorrectLights: false;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
-    embedded
   >
 
     <a-assets timeout="15000">
@@ -435,18 +434,11 @@
       setTimeout(showScanHint, 600);
     };
 
-    // Camera error detection
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .catch((err) => {
-          console.warn('Camera error:', err);
-          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            showError('Camera permission denied. Please allow camera access and reload.');
-          }
-        });
-    } else {
-      showError('Camera not supported in this browser. Please use Chrome on Android or Safari on iOS.');
-    }
+    // Listen for MindAR-level AR errors (camera denied etc)
+    scene.addEventListener('arError', (e) => {
+      console.warn('arError', e.detail);
+      showError('Camera error. Please allow camera access and reload.');
+    });
   </script>
 
 </body>
